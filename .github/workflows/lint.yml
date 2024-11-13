@@ -1,0 +1,20 @@
+name: Lint
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Setup python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.12
+        architecture: x64
+    - run: pip install -e .[dev]
+    - run: black --check *.py */
+    - run: isort --check-only *.py */
+    - run: flake8
+    - run: mypy --install-types --non-interactive -p iati_activity_details_split_by_fields
