@@ -1,0 +1,1 @@
+# activity-details-split-by-fields
