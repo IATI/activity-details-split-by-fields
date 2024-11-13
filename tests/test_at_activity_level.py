@@ -179,3 +179,10 @@ def test_split_by_everything():
             "value": 500,
         },
     ] == results
+
+    # TODO could add code to test sum of the values in the results (per sector vocab)
+    # add up to the original value set on the transaction.
+    # We are then checking NO DOUBLE COUNTING!
+    # It's possible to verify this by hand,
+    # but may as well get Python to check for us and avoid extra work and the possibility of mistakes
+    # (Can use in other tests too)
