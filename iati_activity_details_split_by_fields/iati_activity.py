@@ -91,13 +91,24 @@ class IATIActivity:
         return normalized_countries
 
     def _get_sectors_grouped_by_vocab_with_normalised_percentages(self) -> dict:
-        output: dict = {}
-        # Group by vocab
+        """Group sectors by vocabulary and normalise percentages within each group"""
+        if not self.sectors:
+            return {}
+            
+        # First group by vocab
+        grouped: dict = {}
         for sector in self.sectors:
-            if sector.vocabulary not in output:
-                output[sector.vocabulary] = []
-            output[sector.vocabulary].append(sector)
-        # Now normalise percentages
-        # TODO
-        # Ready!
-        return output
+            vocab = sector.vocabulary or 'default'
+            if vocab not in grouped:
+                grouped[vocab] = []
+            grouped[vocab].append(copy.deepcopy(sector))
+
+        # Now normalise percentages within each vocab group
+        for vocab, sectors in grouped.items():
+            total = sum(sector.percentage or 0 for sector in sectors)
+            if total > 0:  # we only normalise if we have valid percentages
+                for sector in sectors:
+                    if sector.percentage:
+                        sector.percentage = (sector.percentage / total) * 100
+                        
+        return grouped
