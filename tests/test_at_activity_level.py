@@ -186,6 +186,7 @@ def test_split_by_everything():
     # It's possible to verify this by hand,
     # but may as well get Python to check for us and avoid extra work and the possibility of mistakes
     # (Can use in other tests too)
+    # Note: This is now implemented in test_no_double_counting test (with one sector vocab)
     
 def test_no_double_counting():
     """Test that split transactions sum up to original amount"""
