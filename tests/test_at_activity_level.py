@@ -186,3 +186,44 @@ def test_split_by_everything():
     # It's possible to verify this by hand,
     # but may as well get Python to check for us and avoid extra work and the possibility of mistakes
     # (Can use in other tests too)
+    
+def test_no_double_counting():
+    """Test that split transactions sum up to original amount"""
+    
+    # Create activity with both country and sector splits
+    iati_activity = IATIActivity(
+        transactions=[IATIActivityTransaction(value=1000)],
+        recipient_countries=[
+            IATIActivityRecipientCountry(code="FR", percentage=60),
+            IATIActivityRecipientCountry(code="GB", percentage=40),
+        ],
+        sectors=[
+            IATIActivitySector(vocabulary="cats", code="Health", percentage=70),
+            IATIActivitySector(vocabulary="cats", code="Education", percentage=30),
+        ],
+    )
+
+    results = iati_activity.get_transactions_split_as_json()
+
+    # Checking total value matches original
+    total_value = sum(r["value"] for r in results)
+    assert total_value == 1000, f"Total {total_value} should equal original 1000"
+
+    # Checking country totals
+    country_totals = {}
+    for r in results:
+        country = r["recipient_country_code"]
+        country_totals[country] = country_totals.get(country, 0) + r["value"]
+    
+    assert country_totals["FR"] == 600  # 60% of 1000
+    assert country_totals["GB"] == 400  # 40% of 1000
+
+    # Checking sector totals
+    sector_totals = {}
+    for r in results:
+        if r["sectors"]:
+            sector = r["sectors"][0]["code"]
+            sector_totals[sector] = sector_totals.get(sector, 0) + r["value"]
+    
+    assert sector_totals["Health"] == 700  # 70% of 1000
+    assert sector_totals["Education"] == 300  # 30% of 1000
