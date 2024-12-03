@@ -187,10 +187,11 @@ def test_split_by_everything():
     # but may as well get Python to check for us and avoid extra work and the possibility of mistakes
     # (Can use in other tests too)
     # Note: This is now implemented in test_no_double_counting test (with one sector vocab)
-    
+
+
 def test_no_double_counting():
     """Test that split transactions sum up to original amount"""
-    
+
     # Create activity with both country and sector splits
     iati_activity = IATIActivity(
         transactions=[IATIActivityTransaction(value=1000)],
@@ -215,7 +216,7 @@ def test_no_double_counting():
     for r in results:
         country = r["recipient_country_code"]
         country_totals[country] = country_totals.get(country, 0) + r["value"]
-    
+
     assert country_totals["FR"] == 600  # 60% of 1000
     assert country_totals["GB"] == 400  # 40% of 1000
 
@@ -225,6 +226,6 @@ def test_no_double_counting():
         if r["sectors"]:
             sector = r["sectors"][0]["code"]
             sector_totals[sector] = sector_totals.get(sector, 0) + r["value"]
-    
+
     assert sector_totals["Health"] == 700  # 70% of 1000
     assert sector_totals["Education"] == 300  # 30% of 1000

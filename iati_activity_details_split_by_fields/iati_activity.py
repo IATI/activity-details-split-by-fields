@@ -76,29 +76,28 @@ class IATIActivity:
         if not self.recipient_countries:
             return []
         total_percentage = sum(
-            country.percentage or 0 
-            for country in self.recipient_countries
+            country.percentage or 0 for country in self.recipient_countries
         )
         if total_percentage == 0:
             return self.recipient_countries
-            
+
         normalized_countries = copy.deepcopy(self.recipient_countries)
-        
+
         for country in normalized_countries:
             if country.percentage:
                 country.percentage = (country.percentage / total_percentage) * 100
-      
+
         return normalized_countries
 
     def _get_sectors_grouped_by_vocab_with_normalised_percentages(self) -> dict:
         """Group sectors by vocabulary and normalise percentages within each group"""
         if not self.sectors:
             return {}
-            
+
         # First group by vocab
         grouped: dict = {}
         for sector in self.sectors:
-            vocab = sector.vocabulary or 'default'
+            vocab = sector.vocabulary or "default"
             if vocab not in grouped:
                 grouped[vocab] = []
             grouped[vocab].append(copy.deepcopy(sector))
@@ -110,5 +109,5 @@ class IATIActivity:
                 for sector in sectors:
                     if sector.percentage:
                         sector.percentage = (sector.percentage / total) * 100
-                        
+
         return grouped
