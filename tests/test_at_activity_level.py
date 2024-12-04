@@ -72,6 +72,28 @@ def test_split_by_country():
     ] == results
 
 
+def test_split_by_country_with_incorrect_percentages():
+    """Test that country splits work correctly even with percentages that don't sum to 100"""
+
+    iati_activity = IATIActivity(
+        transactions=[IATIActivityTransaction(value=1000)],
+        recipient_countries=[
+            IATIActivityRecipientCountry(code="FR", percentage=30),  # 30%
+            IATIActivityRecipientCountry(code="GB", percentage=40),  # 40%
+        ],
+    )
+
+    results = iati_activity.get_transactions_split_as_json()
+
+    # Check results with ranges
+    assert len(results) == 2
+    assert results[0]["recipient_country_code"] == "FR"
+    assert 428.57 <= results[0]["value"] <= 428.58
+    assert results[1]["recipient_country_code"] == "GB"
+    assert 571.42 <= results[1]["value"] <= 571.43
+    assert all(r["sectors"] == [] for r in results)
+
+
 def test_no_split_but_sector_set():
     """If a activity only has one sector (per vocab), then no split should happen but the sectors should appear on the transactions"""
 
@@ -131,6 +153,42 @@ def test_split_by_sector():
     ] == results
 
 
+def test_split_by_sector_with_incorrect_percentages():
+    """Test that sector splits work correctly even with percentages that don't sum to 100"""
+
+    iati_activity = IATIActivity(
+        transactions=[IATIActivityTransaction(value=1000)],
+        sectors=[
+            IATIActivitySector(vocabulary="cats", code="Henry", percentage=30),  # 30%
+            IATIActivitySector(vocabulary="cats", code="Linda", percentage=40),  # 40%
+            IATIActivitySector(vocabulary="dogs", code="Rover", percentage=100),  # 100%
+        ],
+    )
+
+    results = iati_activity.get_transactions_split_as_json()
+
+    # Check results with ranges
+    assert len(results) == 3
+
+    # Check Henry (cats)
+    assert results[0]["sectors"][0]["code"] == "Henry"
+    assert results[0]["sectors"][0]["vocabulary"] == "cats"
+    assert 428.57 <= results[0]["value"] <= 428.58
+    assert results[0]["recipient_country_code"] is None
+
+    # Check Linda (cats)
+    assert results[1]["sectors"][0]["code"] == "Linda"
+    assert results[1]["sectors"][0]["vocabulary"] == "cats"
+    assert 571.42 <= results[1]["value"] <= 571.43
+    assert results[1]["recipient_country_code"] is None
+
+    # Check Rover (dogs)
+    assert results[2]["sectors"][0]["code"] == "Rover"
+    assert results[2]["sectors"][0]["vocabulary"] == "dogs"
+    assert results[2]["value"] == 1000
+    assert results[2]["recipient_country_code"] is None
+
+
 def test_split_by_everything():
     iati_activity = IATIActivity(
         transactions=[IATIActivityTransaction(value=1000)],
@@ -186,3 +244,46 @@ def test_split_by_everything():
     # It's possible to verify this by hand,
     # but may as well get Python to check for us and avoid extra work and the possibility of mistakes
     # (Can use in other tests too)
+    # Note: This is now implemented in test_no_double_counting test (with one sector vocab)
+
+
+def test_no_double_counting():
+    """Test that split transactions sum up to original amount"""
+
+    # Create activity with both country and sector splits
+    iati_activity = IATIActivity(
+        transactions=[IATIActivityTransaction(value=1000)],
+        recipient_countries=[
+            IATIActivityRecipientCountry(code="FR", percentage=60),
+            IATIActivityRecipientCountry(code="GB", percentage=40),
+        ],
+        sectors=[
+            IATIActivitySector(vocabulary="cats", code="Health", percentage=70),
+            IATIActivitySector(vocabulary="cats", code="Education", percentage=30),
+        ],
+    )
+
+    results = iati_activity.get_transactions_split_as_json()
+
+    # Checking total value matches original
+    total_value = sum(r["value"] for r in results)
+    assert total_value == 1000, f"Total {total_value} should equal original 1000"
+
+    # Checking country totals
+    country_totals = {}
+    for r in results:
+        country = r["recipient_country_code"]
+        country_totals[country] = country_totals.get(country, 0) + r["value"]
+
+    assert country_totals["FR"] == 600  # 60% of 1000
+    assert country_totals["GB"] == 400  # 40% of 1000
+
+    # Checking sector totals
+    sector_totals = {}
+    for r in results:
+        if r["sectors"]:
+            sector = r["sectors"][0]["code"]
+            sector_totals[sector] = sector_totals.get(sector, 0) + r["value"]
+
+    assert sector_totals["Health"] == 700  # 70% of 1000
+    assert sector_totals["Education"] == 300  # 30% of 1000
