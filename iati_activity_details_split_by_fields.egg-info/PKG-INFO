@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: iati-activity-details-split-by-fields
+Version: 0.0.0
+Summary: UNKNOWN
+Home-page: https://github.com/IATI/activity-details-split-by-fields
+License: BSD 3-clause
+Project-URL: Issues, https://github.com/IATI/activity-details-split-by-fields/issues
+Project-URL: Source, https://github.com/IATI/activity-details-split-by-fields
+Platform: UNKNOWN
+Requires-Python: >=3.9
+Provides-Extra: dev
+License-File: LICENSE
+
+UNKNOWN
+

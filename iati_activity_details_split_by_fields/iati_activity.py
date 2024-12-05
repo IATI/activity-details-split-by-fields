@@ -2,6 +2,7 @@ import copy
 from typing import List
 
 from .iati_activity_recipient_country import IATIActivityRecipientCountry
+from .iati_activity_recipient_region import IATIActivityRecipientRegion 
 from .iati_activity_sector import IATIActivitySector
 from .iati_activity_transaction import IATIActivityTransaction
 from .iati_activity_transaction_sector import IATIActivityTransactionSector
@@ -15,12 +16,14 @@ class IATIActivity:
         transactions: List[IATIActivityTransaction] = [],
         sectors: List[IATIActivitySector] = [],
         recipient_countries: List[IATIActivityRecipientCountry] = [],
+        recipient_regions: List[IATIActivityRecipientRegion] = [],
     ):
         self.transactions: List[IATIActivityTransaction] = transactions
         self.sectors: List[IATIActivitySector] = sectors
         self.recipient_countries: List[IATIActivityRecipientCountry] = (
             recipient_countries
         )
+        self.recipient_regions: List[IATIActivityRecipientRegion] = recipient_regions
 
     def get_transactions_split(self):
         output = [
@@ -44,7 +47,19 @@ class IATIActivity:
             output = new_output
 
         # Split by recipient_regions
-        # TODO
+        if len(self.recipient_regions) >= 1:
+            new_output = []
+            for transaction in output:
+                for (
+                    recipient_region
+                ) in self._get_recipient_regions_with_normalised_percentages():
+                    split_transaction = copy.deepcopy(transaction)
+                    split_transaction.value = (
+                        split_transaction.value * recipient_region.percentage / 100
+                    )
+                    split_transaction.recipient_region_code = recipient_region.code
+                    new_output.append(split_transaction)
+            output = new_output
 
         # Split by Sectors
         if len(self.sectors) >= 1:
@@ -111,3 +126,21 @@ class IATIActivity:
                         sector.percentage = (sector.percentage / total) * 100
 
         return grouped
+
+    def _get_recipient_regions_with_normalised_percentages(self):
+        """Normalise region percentages to ensure they sum to 100%"""
+        if not self.recipient_regions:
+            return []
+        total_percentage = sum(
+            region.percentage or 0 for region in self.recipient_regions
+        )
+        if total_percentage == 0:
+            return self.recipient_regions
+
+        normalized_regions = copy.deepcopy(self.recipient_regions)
+
+        for region in normalized_regions:
+            if region.percentage:
+                region.percentage = (region.percentage / total_percentage) * 100
+
+        return normalized_regions
