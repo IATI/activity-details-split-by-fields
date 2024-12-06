@@ -2,7 +2,7 @@ import copy
 from typing import List
 
 from .iati_activity_recipient_country import IATIActivityRecipientCountry
-from .iati_activity_recipient_region import IATIActivityRecipientRegion 
+from .iati_activity_recipient_region import IATIActivityRecipientRegion
 from .iati_activity_sector import IATIActivitySector
 from .iati_activity_transaction import IATIActivityTransaction
 from .iati_activity_transaction_sector import IATIActivityTransactionSector
