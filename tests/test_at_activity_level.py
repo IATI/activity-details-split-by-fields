@@ -2,6 +2,9 @@ from iati_activity_details_split_by_fields.iati_activity import IATIActivity
 from iati_activity_details_split_by_fields.iati_activity_recipient_country import (
     IATIActivityRecipientCountry,
 )
+from iati_activity_details_split_by_fields.iati_activity_recipient_region import (
+    IATIActivityRecipientRegion,
+)
 from iati_activity_details_split_by_fields.iati_activity_sector import (
     IATIActivitySector,
 )
@@ -19,6 +22,7 @@ def test_no_split():
     assert [
         {
             "recipient_country_code": None,
+            "recipient_region_code": None,
             "sectors": [],
             "value": 1000,
         }
@@ -40,6 +44,7 @@ def test_no_split_but_country_set():
     assert [
         {
             "recipient_country_code": "GB",
+            "recipient_region_code": None,
             "sectors": [],
             "value": 1000,
         }
@@ -61,11 +66,13 @@ def test_split_by_country():
     assert [
         {
             "recipient_country_code": "FR",
+            "recipient_region_code": None,
             "sectors": [],
             "value": 500,
         },
         {
             "recipient_country_code": "GB",
+            "recipient_region_code": None,
             "sectors": [],
             "value": 500,
         },
@@ -94,6 +101,78 @@ def test_split_by_country_with_incorrect_percentages():
     assert all(r["sectors"] == [] for r in results)
 
 
+def test_no_split_but_region_set():
+    """If an activity only has one region, then no split should happen but the region should appear on the transactions"""
+
+    iati_activity = IATIActivity(
+        transactions=[IATIActivityTransaction(value=1000)],
+        recipient_regions=[
+            IATIActivityRecipientRegion(code="ASIA", percentage=100),
+        ],
+    )
+
+    results = iati_activity.get_transactions_split_as_json()
+
+    assert [
+        {
+            "recipient_country_code": None,
+            "recipient_region_code": "ASIA",
+            "sectors": [],
+            "value": 1000,
+        }
+    ] == results
+
+
+def test_split_by_region():
+    iati_activity = IATIActivity(
+        transactions=[IATIActivityTransaction(value=1000)],
+        recipient_regions=[
+            IATIActivityRecipientRegion(code="ASIA", percentage=50),
+            IATIActivityRecipientRegion(code="AFRICA", percentage=50),
+        ],
+    )
+
+    results = iati_activity.get_transactions_split_as_json()
+
+    assert [
+        {
+            "recipient_country_code": None,
+            "recipient_region_code": "ASIA",
+            "sectors": [],
+            "value": 500,
+        },
+        {
+            "recipient_country_code": None,
+            "recipient_region_code": "AFRICA",
+            "sectors": [],
+            "value": 500,
+        },
+    ] == results
+
+
+def test_split_by_region_with_incorrect_percentages():
+    """Test that region splits work correctly even with percentages that don't sum to 100"""
+
+    iati_activity = IATIActivity(
+        transactions=[IATIActivityTransaction(value=1000)],
+        recipient_regions=[
+            IATIActivityRecipientRegion(code="ASIA", percentage=30),  # 30%
+            IATIActivityRecipientRegion(code="AFRICA", percentage=40),  # 40%
+        ],
+    )
+
+    results = iati_activity.get_transactions_split_as_json()
+
+    # Check results with ranges
+    assert len(results) == 2
+    assert results[0]["recipient_region_code"] == "ASIA"
+    assert 428.57 <= results[0]["value"] <= 428.58  # ~42.86% of 1000
+    assert results[1]["recipient_region_code"] == "AFRICA"
+    assert 571.42 <= results[1]["value"] <= 571.43  # ~57.14% of 1000
+    assert all(r["recipient_country_code"] is None for r in results)
+    assert all(r["sectors"] == [] for r in results)
+
+
 def test_no_split_but_sector_set():
     """If a activity only has one sector (per vocab), then no split should happen but the sectors should appear on the transactions"""
 
@@ -110,11 +189,13 @@ def test_no_split_but_sector_set():
     assert [
         {
             "recipient_country_code": None,
+            "recipient_region_code": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
             "value": 1000,
         },
         {
             "recipient_country_code": None,
+            "recipient_region_code": None,
             "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
             "value": 1000,
         },
@@ -137,16 +218,19 @@ def test_split_by_sector():
     assert [
         {
             "recipient_country_code": None,
+            "recipient_region_code": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
             "value": 500,
         },
         {
             "recipient_country_code": None,
+            "recipient_region_code": None,
             "sectors": [{"code": "Linda", "vocabulary": "cats"}],
             "value": 500,
         },
         {
             "recipient_country_code": None,
+            "recipient_region_code": None,
             "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
             "value": 1000,
         },
@@ -208,31 +292,37 @@ def test_split_by_everything():
     assert [
         {
             "recipient_country_code": "FR",
+            "recipient_region_code": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
             "value": 250,
         },
         {
             "recipient_country_code": "FR",
+            "recipient_region_code": None,
             "sectors": [{"code": "Linda", "vocabulary": "cats"}],
             "value": 250,
         },
         {
             "recipient_country_code": "FR",
+            "recipient_region_code": None,
             "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
             "value": 500,
         },
         {
             "recipient_country_code": "GB",
+            "recipient_region_code": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
             "value": 250,
         },
         {
             "recipient_country_code": "GB",
+            "recipient_region_code": None,
             "sectors": [{"code": "Linda", "vocabulary": "cats"}],
             "value": 250,
         },
         {
             "recipient_country_code": "GB",
+            "recipient_region_code": None,
             "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
             "value": 500,
         },
