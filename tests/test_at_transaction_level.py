@@ -43,7 +43,7 @@ def test_sector_set():
     assert [
         {
             "recipient_country_code": None,
-            "recipient_region_code": None, 
+            "recipient_region_code": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
             "value": 1000,
         },
