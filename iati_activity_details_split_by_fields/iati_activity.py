@@ -26,62 +26,82 @@ class IATIActivity:
         self.recipient_regions: List[IATIActivityRecipientRegion] = recipient_regions
 
     def get_transactions_split(self):
-        output = [
-            IATIActivityTransactionSplit(iati_activity_transaction=i)
-            for i in self.transactions
-        ]
+        output = []
 
-        # Split by recipient_countries
-        if len(self.recipient_countries) >= 1:
+        for transaction in self.transactions:
+            # Print initial transaction details
+            print(f"Processing transaction: {transaction.value}")
+            
+            # If transaction has its own recipient or sector declarations, use it directly
+            if (
+                transaction.recipient_country_code is not None or 
+                transaction.recipient_region_code is not None or 
+                transaction.sectors
+            ):
+                output.append(IATIActivityTransactionSplit(iati_activity_transaction=transaction))
+                continue
+
+            # Get recipient groups (by vocab), with percentages normalized per group
+            vocab_groups = self._get_recipients_grouped_by_vocab_with_normalised_percentages()
+            print("Vocab Groups: ", vocab_groups)  # See the grouped recipients by vocab
+
+            # If no recipients, keep original transaction
+            if not vocab_groups:
+                output.append(IATIActivityTransactionSplit(iati_activity_transaction=transaction))
+                continue
+
+            # For each vocabulary, split the full transaction value among recipients in that group
+            for vocab, recipients in vocab_groups.items():
+                for recipient in recipients:
+                    split = IATIActivityTransactionSplit()
+                    split.value = transaction.value * recipient["percentage"] / 100
+
+                    if recipient["type"] == "country":
+                        split.recipient_country_code = recipient["code"]
+                        split.recipient_region_code = None
+                    else:
+                        split.recipient_region_code = recipient["code"]
+                        split.recipient_country_code = None
+
+                    # Print each split to inspect how it's being calculated
+                    print(f"Split transaction for {vocab} - {recipient['type']} {recipient['code']}: {split.value}")
+                    output.append(split)
+
+        # If there are sectors to split by, handle them
+        if self.sectors:
+            sectors_grouped = self._get_sectors_grouped_by_vocab_with_normalised_percentages()
+            print("Sectors Grouped: ", sectors_grouped)  # See how sectors are being grouped
+
             new_output = []
-            for transaction in output:
-                for (
-                    recipient_country
-                ) in self._get_recipient_countries_with_normalised_percentages():
-                    split_transaction = copy.deepcopy(transaction)
-                    split_transaction.value = (
-                        split_transaction.value * recipient_country.percentage / 100
-                    )
-                    split_transaction.recipient_country_code = recipient_country.code
+            for split_transaction in output:
+                # If split already has sectors, leave as is
+                if split_transaction.sectors:
                     new_output.append(split_transaction)
-            output = new_output
+                    continue
 
-        # Split by recipient_regions
-        if len(self.recipient_regions) >= 1:
-            new_output = []
-            for transaction in output:
-                for (
-                    recipient_region
-                ) in self._get_recipient_regions_with_normalised_percentages():
-                    split_transaction = copy.deepcopy(transaction)
-                    split_transaction.value = (
-                        split_transaction.value * recipient_region.percentage / 100
-                    )
-                    split_transaction.recipient_region_code = recipient_region.code
-                    new_output.append(split_transaction)
-            output = new_output
+                has_sector_splits = False
 
-        # Split by Sectors
-        if len(self.sectors) >= 1:
-            sectors_grouped = (
-                self._get_sectors_grouped_by_vocab_with_normalised_percentages()
-            )
-            new_output = []
-            for transaction in output:
                 for vocab, sectors in sectors_grouped.items():
                     for sector in sectors:
-                        split_transaction = copy.deepcopy(transaction)
-                        split_transaction.value = (
-                            split_transaction.value * sector.percentage / 100
-                        )
-                        split_transaction.sectors = [
+                        has_sector_splits = True
+                        sector_split = copy.deepcopy(split_transaction)
+                        sector_split.value = split_transaction.value * sector.percentage / 100
+                        sector_split.sectors = [
                             IATIActivityTransactionSector(iati_activity_sector=sector)
                         ]
-                        new_output.append(split_transaction)
+                        new_output.append(sector_split)
+
+                # If no sector was applied, keep the original
+                if not has_sector_splits:
+                    new_output.append(split_transaction)
+
             output = new_output
 
-        # Done!
+        # Print the final output before returning
+        print("Final Output Transactions: ", output)
+        
         return output
+
 
     def get_transactions_split_as_json(self):
         return [x.get_as_json() for x in self.get_transactions_split()]
@@ -144,3 +164,48 @@ class IATIActivity:
                 region.percentage = (region.percentage / total_percentage) * 100
 
         return normalized_regions
+
+    def _get_recipients_grouped_by_vocab_with_normalised_percentages(self) -> dict:
+        """
+        Group countries and regions by vocabulary and normalise percentages within each group.
+        Returns a dictionary where each key is a vocabulary (string), and each value is a list
+        of recipient dicts with 'type', 'code', 'percentage', and 'object'.
+        """
+        vocab_groups = {}
+
+        # Group recipient countries under vocab "1" only
+        if self.recipient_countries:
+            vocab = "1"
+            if vocab not in vocab_groups:
+                vocab_groups[vocab] = []
+            
+            for country in self.recipient_countries:
+                vocab_groups[vocab].append({
+                    "type": "country",
+                    "code": country.code,
+                    "percentage": country.percentage or 0,
+                    "object": copy.deepcopy(country),
+                })
+
+        # Group recipient regions by their declared vocabulary, defaulting to "1"
+        if self.recipient_regions:
+            for region in self.recipient_regions:
+                vocab = region.vocabulary or "1"
+                if vocab not in vocab_groups:
+                    vocab_groups[vocab] = []
+                
+                vocab_groups[vocab].append({
+                    "type": "region",
+                    "code": region.code,
+                    "percentage": region.percentage or 0,
+                    "object": copy.deepcopy(region),
+                })
+
+        # Normalise percentages per vocabulary group
+        for vocab, recipients in vocab_groups.items():
+            total = sum(r["percentage"] for r in recipients)
+            if total > 0:
+                for recipient in recipients:
+                    recipient["percentage"] = (recipient["percentage"] / total) * 100
+
+        return vocab_groups
