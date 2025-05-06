@@ -1,5 +1,5 @@
 import copy
-from typing import List
+from typing import Any, List
 
 from .iati_activity_recipient_country import IATIActivityRecipientCountry
 from .iati_activity_recipient_region import IATIActivityRecipientRegion
@@ -31,23 +31,29 @@ class IATIActivity:
         for transaction in self.transactions:
             # Print initial transaction details
             print(f"Processing transaction: {transaction.value}")
-            
+
             # If transaction has its own recipient or sector declarations, use it directly
             if (
-                transaction.recipient_country_code is not None or 
-                transaction.recipient_region_code is not None or 
-                transaction.sectors
+                transaction.recipient_country_code is not None
+                or transaction.recipient_region_code is not None
+                or transaction.sectors
             ):
-                output.append(IATIActivityTransactionSplit(iati_activity_transaction=transaction))
+                output.append(
+                    IATIActivityTransactionSplit(iati_activity_transaction=transaction)
+                )
                 continue
 
             # Get recipient groups (by vocab), with percentages normalized per group
-            vocab_groups = self._get_recipients_grouped_by_vocab_with_normalised_percentages()
+            vocab_groups = (
+                self._get_recipients_grouped_by_vocab_with_normalised_percentages()
+            )
             print("Vocab Groups: ", vocab_groups)  # See the grouped recipients by vocab
 
             # If no recipients, keep original transaction
             if not vocab_groups:
-                output.append(IATIActivityTransactionSplit(iati_activity_transaction=transaction))
+                output.append(
+                    IATIActivityTransactionSplit(iati_activity_transaction=transaction)
+                )
                 continue
 
             # For each vocabulary, split the full transaction value among recipients in that group
@@ -64,13 +70,19 @@ class IATIActivity:
                         split.recipient_country_code = None
 
                     # Print each split to inspect how it's being calculated
-                    print(f"Split transaction for {vocab} - {recipient['type']} {recipient['code']}: {split.value}")
+                    print(
+                        f"Split transaction for {vocab} - {recipient['type']} {recipient['code']}: {split.value}"
+                    )
                     output.append(split)
 
         # If there are sectors to split by, handle them
         if self.sectors:
-            sectors_grouped = self._get_sectors_grouped_by_vocab_with_normalised_percentages()
-            print("Sectors Grouped: ", sectors_grouped)  # See how sectors are being grouped
+            sectors_grouped = (
+                self._get_sectors_grouped_by_vocab_with_normalised_percentages()
+            )
+            print(
+                "Sectors Grouped: ", sectors_grouped
+            )  # See how sectors are being grouped
 
             new_output = []
             for split_transaction in output:
@@ -85,7 +97,9 @@ class IATIActivity:
                     for sector in sectors:
                         has_sector_splits = True
                         sector_split = copy.deepcopy(split_transaction)
-                        sector_split.value = split_transaction.value * sector.percentage / 100
+                        sector_split.value = (
+                            split_transaction.value * sector.percentage / 100
+                        )
                         sector_split.sectors = [
                             IATIActivityTransactionSector(iati_activity_sector=sector)
                         ]
@@ -99,9 +113,8 @@ class IATIActivity:
 
         # Print the final output before returning
         print("Final Output Transactions: ", output)
-        
-        return output
 
+        return output
 
     def get_transactions_split_as_json(self):
         return [x.get_as_json() for x in self.get_transactions_split()]
@@ -171,21 +184,23 @@ class IATIActivity:
         Returns a dictionary where each key is a vocabulary (string), and each value is a list
         of recipient dicts with 'type', 'code', 'percentage', and 'object'.
         """
-        vocab_groups = {}
+        vocab_groups: dict[str, list[dict[str, Any]]] = {}
 
         # Group recipient countries under vocab "1" only
         if self.recipient_countries:
             vocab = "1"
             if vocab not in vocab_groups:
                 vocab_groups[vocab] = []
-            
+
             for country in self.recipient_countries:
-                vocab_groups[vocab].append({
-                    "type": "country",
-                    "code": country.code,
-                    "percentage": country.percentage or 0,
-                    "object": copy.deepcopy(country),
-                })
+                vocab_groups[vocab].append(
+                    {
+                        "type": "country",
+                        "code": country.code,
+                        "percentage": country.percentage or 0,
+                        "object": copy.deepcopy(country),
+                    }
+                )
 
         # Group recipient regions by their declared vocabulary, defaulting to "1"
         if self.recipient_regions:
@@ -193,13 +208,15 @@ class IATIActivity:
                 vocab = region.vocabulary or "1"
                 if vocab not in vocab_groups:
                     vocab_groups[vocab] = []
-                
-                vocab_groups[vocab].append({
-                    "type": "region",
-                    "code": region.code,
-                    "percentage": region.percentage or 0,
-                    "object": copy.deepcopy(region),
-                })
+
+                vocab_groups[vocab].append(
+                    {
+                        "type": "region",
+                        "code": region.code,
+                        "percentage": region.percentage or 0,
+                        "object": copy.deepcopy(region),
+                    }
+                )
 
         # Normalise percentages per vocabulary group
         for vocab, recipients in vocab_groups.items():

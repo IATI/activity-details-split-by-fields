@@ -1,7 +1,13 @@
 from iati_activity_details_split_by_fields.iati_activity import IATIActivity
-from iati_activity_details_split_by_fields.iati_activity_recipient_country import IATIActivityRecipientCountry
-from iati_activity_details_split_by_fields.iati_activity_recipient_region import IATIActivityRecipientRegion
-from iati_activity_details_split_by_fields.iati_activity_transaction import IATIActivityTransaction
+from iati_activity_details_split_by_fields.iati_activity_recipient_country import (
+    IATIActivityRecipientCountry,
+)
+from iati_activity_details_split_by_fields.iati_activity_recipient_region import (
+    IATIActivityRecipientRegion,
+)
+from iati_activity_details_split_by_fields.iati_activity_transaction import (
+    IATIActivityTransaction,
+)
 
 
 def test_country_region_same_vocabulary():
@@ -15,7 +21,7 @@ def test_country_region_same_vocabulary():
         recipient_regions=[
             IATIActivityRecipientRegion(code="ASIA", percentage=25),
             IATIActivityRecipientRegion(code="AFRICA", percentage=25),
-        ]
+        ],
     )
     results = activity.get_transactions_split_as_json()
     assert len(results) == 4
@@ -46,7 +52,7 @@ def test_multiple_region_vocabularies():
             IATIActivityRecipientRegion(code="AFRICA", percentage=25, vocabulary="1"),
             IATIActivityRecipientRegion(code="NORTH", percentage=50, vocabulary="2"),
             IATIActivityRecipientRegion(code="SOUTH", percentage=50, vocabulary="2"),
-        ]
+        ],
     )
     results = activity.get_transactions_split_as_json()
     assert len(results) == 6
@@ -81,7 +87,7 @@ def test_incorrect_percentages_normalisation():
         recipient_regions=[
             IATIActivityRecipientRegion(code="ASIA", percentage=40),
             IATIActivityRecipientRegion(code="AFRICA", percentage=10),
-        ]
+        ],
     )
     results = activity.get_transactions_split_as_json()
     assert len(results) == 4
@@ -107,7 +113,7 @@ def test_only_countries_no_regions():
             IATIActivityRecipientCountry(code="US", percentage=60),
             IATIActivityRecipientCountry(code="CA", percentage=40),
         ],
-        recipient_regions=[]
+        recipient_regions=[],
     )
     results = activity.get_transactions_split_as_json()
     assert len(results) == 2
@@ -128,11 +134,13 @@ def test_total_split_exceeds_original_due_to_multiple_vocabularies():
         ],
         recipient_regions=[
             IATIActivityRecipientRegion(code="Y", vocabulary="1", percentage=50),
-            IATIActivityRecipientRegion(code="Z", vocabulary="2", percentage=50)
-        ]
+            IATIActivityRecipientRegion(code="Z", vocabulary="2", percentage=50),
+        ],
     )
     results = activity.get_transactions_split_as_json()
     assert len(results) == 3
 
     total_value = sum(r["value"] for r in results)
-    assert total_value == 200  # Each vocabulary group is treated independently, so values add up beyond 100
+    assert (
+        total_value == 200
+    )  # Each vocabulary group is treated independently, so values add up beyond 100
