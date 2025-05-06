@@ -29,9 +29,6 @@ class IATIActivity:
         output = []
 
         for transaction in self.transactions:
-            # Print initial transaction details
-            print(f"Processing transaction: {transaction.value}")
-
             # If transaction has its own recipient or sector declarations, use it directly
             if (
                 transaction.recipient_country_code is not None
@@ -47,7 +44,6 @@ class IATIActivity:
             vocab_groups = (
                 self._get_recipients_grouped_by_vocab_with_normalised_percentages()
             )
-            print("Vocab Groups: ", vocab_groups)  # See the grouped recipients by vocab
 
             # If no recipients, keep original transaction
             if not vocab_groups:
@@ -69,10 +65,6 @@ class IATIActivity:
                         split.recipient_region_code = recipient["code"]
                         split.recipient_country_code = None
 
-                    # Print each split to inspect how it's being calculated
-                    print(
-                        f"Split transaction for {vocab} - {recipient['type']} {recipient['code']}: {split.value}"
-                    )
                     output.append(split)
 
         # If there are sectors to split by, handle them
@@ -80,9 +72,6 @@ class IATIActivity:
             sectors_grouped = (
                 self._get_sectors_grouped_by_vocab_with_normalised_percentages()
             )
-            print(
-                "Sectors Grouped: ", sectors_grouped
-            )  # See how sectors are being grouped
 
             new_output = []
             for split_transaction in output:
@@ -110,9 +99,6 @@ class IATIActivity:
                     new_output.append(split_transaction)
 
             output = new_output
-
-        # Print the final output before returning
-        print("Final Output Transactions: ", output)
 
         return output
 
