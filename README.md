@@ -241,6 +241,12 @@ Then any data not in those vocabularies will just be silently dropped.
 - `get_split_transactions(iati_activity: IATIActivity)`: Returns list of split transactions
 - `get_split_transactions_as_json(iati_activity: IATIActivity)`: Returns list of split transactions in JSON format
 
+## filter_split_transactions_by_vocabulary function in utils
+
+When summing up split transactions, you should always do it in one region vocabulary and one sector vocabulary only!
+If you don't you may double count values. 
+This function helps you filter to only get transactions in the vocabularies you want.
+
 ## Development
 
 ### Setting up Development Environment

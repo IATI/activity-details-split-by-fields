@@ -11,6 +11,9 @@ from iati_activity_details_split_by_fields.iati_activity_sector import (
 from iati_activity_details_split_by_fields.iati_activity_transaction import (
     IATIActivityTransaction,
 )
+from iati_activity_details_split_by_fields.utils import (
+    filter_split_transactions_by_vocabulary,
+)
 from iati_activity_details_split_by_fields.worker import Worker
 
 
@@ -308,7 +311,7 @@ def test_split_by_everything():
     # TODO add regions
 
     worker = Worker()
-    results = worker.get_split_transactions_as_json(iati_activity)
+    results = worker.get_split_transactions(iati_activity)
 
     assert [
         {
@@ -347,15 +350,25 @@ def test_split_by_everything():
             "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
             "value": 500.0,
         },
-    ] == results
+    ] == [i.get_as_json() for i in results]
 
-    # TODO could add code to test sum of the values in the results (per sector vocab)
-    # add up to the original value set on the transaction.
-    # We are then checking NO DOUBLE COUNTING!
-    # It's possible to verify this by hand,
-    # but may as well get Python to check for us and avoid extra work and the possibility of mistakes
-    # (Can use in other tests too)
-    # Note: This is now implemented in test_no_double_counting test (with one sector vocab)
+    assert 1000 == sum(
+        [
+            i.value
+            for i in filter_split_transactions_by_vocabulary(
+                results, sector_vocabulary="cats"
+            )
+        ]
+    )
+
+    assert 1000 == sum(
+        [
+            i.value
+            for i in filter_split_transactions_by_vocabulary(
+                results, sector_vocabulary="dogs"
+            )
+        ]
+    )
 
 
 def test_no_double_counting():
