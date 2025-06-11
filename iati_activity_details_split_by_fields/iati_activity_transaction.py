@@ -26,3 +26,15 @@ class IATIActivityTransaction:
         self.recipient_region: Optional[IATIActivityTransactionRecipientRegion] = (
             recipient_region
         )
+
+    def get_as_json(self):
+        return {
+            "value": self.value,
+            "recipient_country": (
+                self.recipient_country.get_as_json() if self.recipient_country else None
+            ),
+            "recipient_region": (
+                self.recipient_region.get_as_json() if self.recipient_region else None
+            ),
+            "sectors": [i.get_as_json() for i in self.sectors],
+        }
