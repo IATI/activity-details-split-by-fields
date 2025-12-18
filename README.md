@@ -75,10 +75,12 @@ When some fields are at transaction level and others at activity level:
 ## Usage Examples
 
 ### Basic Country Split
+
 ```python
 from iati_activity_details_split_by_fields.iati_activity import IATIActivity
 from iati_activity_details_split_by_fields.iati_activity_transaction import IATIActivityTransaction
 from iati_activity_details_split_by_fields.iati_activity_recipient_country import IATIActivityRecipientCountry
+from iati_activity_details_split_by_fields.worker import Worker
 
 # Split $1000 between two countries
 activity = IATIActivity(
@@ -89,12 +91,16 @@ activity = IATIActivity(
     ]
 )
 
-results = activity.get_transactions_split_as_json()
+print(Worker().get_split_transactions_as_json(activity))
 ```
 
 ### Region Split
+
 ```python
+from iati_activity_details_split_by_fields.iati_activity import IATIActivity
+from iati_activity_details_split_by_fields.iati_activity_transaction import IATIActivityTransaction
 from iati_activity_details_split_by_fields.iati_activity_recipient_region import IATIActivityRecipientRegion
+from iati_activity_details_split_by_fields.worker import Worker
 
 # Split $1000 between regions
 activity = IATIActivity(
@@ -105,12 +111,16 @@ activity = IATIActivity(
     ]
 )
 
-results = activity.get_transactions_split_as_json()
+print(Worker().get_split_transactions_as_json(activity))
 ```
 
 ### Sector Split
+
 ```python
+from iati_activity_details_split_by_fields.iati_activity import IATIActivity
+from iati_activity_details_split_by_fields.iati_activity_transaction import IATIActivityTransaction
 from iati_activity_details_split_by_fields.iati_activity_sector import IATIActivitySector
+from iati_activity_details_split_by_fields.worker import Worker
 
 # Split $1000 between sectors
 activity = IATIActivity(
@@ -121,11 +131,18 @@ activity = IATIActivity(
     ]
 )
 
-results = activity.get_transactions_split_as_json()
+print(Worker().get_split_transactions_as_json(activity))
 ```
 
 ### Complex Example: Multiple Splits
+
 ```python
+from iati_activity_details_split_by_fields.iati_activity import IATIActivity
+from iati_activity_details_split_by_fields.iati_activity_transaction import IATIActivityTransaction
+from iati_activity_details_split_by_fields.iati_activity_sector import IATIActivitySector
+from iati_activity_details_split_by_fields.worker import Worker
+from iati_activity_details_split_by_fields.iati_activity_recipient_country import IATIActivityRecipientCountry
+
 # Example: $1000 transaction split between:
 # - Two countries (50% each)
 # - Two sectors (50% each)
@@ -142,10 +159,12 @@ activity = IATIActivity(
     ]
 )
 
+print(Worker().get_split_transactions_as_json(activity))
+
 # Results will be:
 # 1. Country A, Sector A: $250 (25%)
-# 2. Country A, Sector B: $250 (25%)
 # 3. Country B, Sector A: $250 (25%)
+# 4. Country A, Sector B: $250 (25%)
 # 4. Country B, Sector B: $250 (25%)
 ```
 
@@ -157,22 +176,16 @@ The library automatically normalizes percentages that don't sum to 100%. For exa
 - A 30% share becomes (30/70 * 100) = 42.86%
 - A 40% share becomes (40/70 * 100) = 57.14%
 
-### Splitting Order
-Transactions are split in this order:
-1. Countries (if any)
-2. Regions (if any)
-3. Sectors (if any)
-
 ### Output Format
 All outputs follow this structure:
 ```python
 {
-    "value": float,                    # Split transaction value
-    "recipient_country_code": str,     # Country code or None (NOT a list)
-    "recipient_region_code": str,      # Region code or None (NOT a list)
-    "sectors": [                       # List of sectors (can be empty)
+    "value": float,    # Split transaction value
+    "recipient_country": {"code":str } or None,    # Country details or None (NOT a list)
+    "recipient_region": {"vocabulary":str, "code":str} or None,    # Region details or None (NOT a list)
+    "sectors": [    # List of sectors (can be empty)
         {
-            "vocabulary": str,         # Sector vocabulary (defaults to DAC-5 if value present)
+            "vocabulary": str,         # Sector vocabulary
             "code": str               # Sector code
         }
     ]
@@ -182,11 +195,7 @@ All outputs follow this structure:
 ## API Reference
 
 ### IATIActivity
-Main class for handling transaction splits.
-
-#### Methods:
-- `get_transactions_split()`: Returns list of split transactions
-- `get_transactions_split_as_json()`: Returns list of split transactions in JSON format
+Main class for buliding a representatin of an activity.
 
 ### IATIActivityTransaction
 Represents a single transaction.
@@ -194,8 +203,8 @@ Represents a single transaction.
 #### Attributes:
 - `value`: Transaction amount
 - `sectors`: List of sectors
-- `recipient_country_code`: Country code (single value)
-- `recipient_region_code`: Region code (single value)
+- `recipient_country`: Country (single value)
+- `recipient_region`: Region (single value)
 
 ### IATIActivityRecipientCountry
 Represents a country allocation.
@@ -210,6 +219,7 @@ Represents a region allocation.
 #### Attributes:
 - `code`: Region code
 - `percentage`: Allocation percentage
+- `vocabulary`: Vocabulary, defaults to 1
 
 ### IATIActivitySector
 Represents a sector allocation.
@@ -218,6 +228,24 @@ Represents a sector allocation.
 - `vocabulary`: Sector vocabulary
 - `code`: Sector code
 - `percentage`: Allocation percentage
+
+### Worker
+Takes in an activity and actually processes it.
+
+#### Constructor Paramaters
+
+If you only care about some vocabularies, you can pass them here. 
+Then any data not in those vocabularies will just be silently dropped.
+
+#### Methods:
+- `get_split_transactions(iati_activity: IATIActivity)`: Returns list of split transactions
+- `get_split_transactions_as_json(iati_activity: IATIActivity)`: Returns list of split transactions in JSON format
+
+## filter_split_transactions_by_vocabulary function in utils
+
+When summing up split transactions, you should always do it in one region vocabulary and one sector vocabulary only!
+If you don't you may double count values. 
+This function helps you filter to only get transactions in the vocabularies you want.
 
 ## Development
 

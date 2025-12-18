@@ -11,18 +11,23 @@ from iati_activity_details_split_by_fields.iati_activity_sector import (
 from iati_activity_details_split_by_fields.iati_activity_transaction import (
     IATIActivityTransaction,
 )
+from iati_activity_details_split_by_fields.utils import (
+    filter_split_transactions_by_vocabulary,
+)
+from iati_activity_details_split_by_fields.worker import Worker
 
 
 def test_no_split():
 
     iati_activity = IATIActivity(transactions=[IATIActivityTransaction(value=1000)])
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     assert [
         {
-            "recipient_country_code": None,
-            "recipient_region_code": None,
+            "recipient_country": None,
+            "recipient_region": None,
             "sectors": [],
             "value": 1000,
         }
@@ -39,12 +44,13 @@ def test_no_split_but_country_set():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     assert [
         {
-            "recipient_country_code": "GB",
-            "recipient_region_code": None,
+            "recipient_country": {"code": "GB"},
+            "recipient_region": None,
             "sectors": [],
             "value": 1000,
         }
@@ -61,20 +67,21 @@ def test_split_by_country():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     assert [
         {
-            "recipient_country_code": "FR",
-            "recipient_region_code": None,
+            "recipient_country": {"code": "FR"},
+            "recipient_region": None,
             "sectors": [],
-            "value": 500,
+            "value": 500.0,
         },
         {
-            "recipient_country_code": "GB",
-            "recipient_region_code": None,
+            "recipient_country": {"code": "GB"},
+            "recipient_region": None,
             "sectors": [],
-            "value": 500,
+            "value": 500.0,
         },
     ] == results
 
@@ -85,20 +92,28 @@ def test_split_by_country_with_incorrect_percentages():
     iati_activity = IATIActivity(
         transactions=[IATIActivityTransaction(value=1000)],
         recipient_countries=[
-            IATIActivityRecipientCountry(code="FR", percentage=30),  # 30%
-            IATIActivityRecipientCountry(code="GB", percentage=40),  # 40%
+            IATIActivityRecipientCountry(code="FR", percentage=25),
+            IATIActivityRecipientCountry(code="GB", percentage=25),
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
-    # Check results with ranges
-    assert len(results) == 2
-    assert results[0]["recipient_country_code"] == "FR"
-    assert 428.57 <= results[0]["value"] <= 428.58
-    assert results[1]["recipient_country_code"] == "GB"
-    assert 571.42 <= results[1]["value"] <= 571.43
-    assert all(r["sectors"] == [] for r in results)
+    assert [
+        {
+            "recipient_country": {"code": "FR"},
+            "recipient_region": None,
+            "sectors": [],
+            "value": 500,
+        },
+        {
+            "recipient_country": {"code": "GB"},
+            "recipient_region": None,
+            "sectors": [],
+            "value": 500,
+        },
+    ] == results
 
 
 def test_no_split_but_region_set():
@@ -111,12 +126,13 @@ def test_no_split_but_region_set():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     assert [
         {
-            "recipient_country_code": None,
-            "recipient_region_code": "ASIA",
+            "recipient_country": None,
+            "recipient_region": {"code": "ASIA", "vocabulary": "1"},
             "sectors": [],
             "value": 1000,
         }
@@ -132,18 +148,19 @@ def test_split_by_region():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     assert [
         {
-            "recipient_country_code": None,
-            "recipient_region_code": "ASIA",
+            "recipient_country": None,
+            "recipient_region": {"code": "ASIA", "vocabulary": "1"},
             "sectors": [],
-            "value": 500,
+            "value": 500.0,
         },
         {
-            "recipient_country_code": None,
-            "recipient_region_code": "AFRICA",
+            "recipient_country": None,
+            "recipient_region": {"code": "AFRICA", "vocabulary": "1"},
             "sectors": [],
             "value": 500,
         },
@@ -161,15 +178,16 @@ def test_split_by_region_with_incorrect_percentages():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     # Check results with ranges
     assert len(results) == 2
-    assert results[0]["recipient_region_code"] == "ASIA"
+    assert results[0]["recipient_region"] == {"code": "ASIA", "vocabulary": "1"}
     assert 428.57 <= results[0]["value"] <= 428.58  # ~42.86% of 1000
-    assert results[1]["recipient_region_code"] == "AFRICA"
+    assert results[1]["recipient_region"] == {"code": "AFRICA", "vocabulary": "1"}
     assert 571.42 <= results[1]["value"] <= 571.43  # ~57.14% of 1000
-    assert all(r["recipient_country_code"] is None for r in results)
+    assert all(r["recipient_country"] is None for r in results)
     assert all(r["sectors"] == [] for r in results)
 
 
@@ -184,18 +202,19 @@ def test_no_split_but_sector_set():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     assert [
         {
-            "recipient_country_code": None,
-            "recipient_region_code": None,
+            "recipient_country": None,
+            "recipient_region": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
             "value": 1000,
         },
         {
-            "recipient_country_code": None,
-            "recipient_region_code": None,
+            "recipient_country": None,
+            "recipient_region": None,
             "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
             "value": 1000,
         },
@@ -213,26 +232,27 @@ def test_split_by_sector():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     assert [
         {
-            "recipient_country_code": None,
-            "recipient_region_code": None,
+            "recipient_country": None,
+            "recipient_region": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
-            "value": 500,
+            "value": 500.0,
         },
         {
-            "recipient_country_code": None,
-            "recipient_region_code": None,
+            "recipient_country": None,
+            "recipient_region": None,
             "sectors": [{"code": "Linda", "vocabulary": "cats"}],
-            "value": 500,
+            "value": 500.0,
         },
         {
-            "recipient_country_code": None,
-            "recipient_region_code": None,
+            "recipient_country": None,
+            "recipient_region": None,
             "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
-            "value": 1000,
+            "value": 1000.0,
         },
     ] == results
 
@@ -249,7 +269,8 @@ def test_split_by_sector_with_incorrect_percentages():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     # Check results with ranges
     assert len(results) == 3
@@ -258,19 +279,19 @@ def test_split_by_sector_with_incorrect_percentages():
     assert results[0]["sectors"][0]["code"] == "Henry"
     assert results[0]["sectors"][0]["vocabulary"] == "cats"
     assert 428.57 <= results[0]["value"] <= 428.58
-    assert results[0]["recipient_country_code"] is None
+    assert results[0]["recipient_country"] is None
 
     # Check Linda (cats)
     assert results[1]["sectors"][0]["code"] == "Linda"
     assert results[1]["sectors"][0]["vocabulary"] == "cats"
     assert 571.42 <= results[1]["value"] <= 571.43
-    assert results[1]["recipient_country_code"] is None
+    assert results[1]["recipient_country"] is None
 
     # Check Rover (dogs)
     assert results[2]["sectors"][0]["code"] == "Rover"
     assert results[2]["sectors"][0]["vocabulary"] == "dogs"
     assert results[2]["value"] == 1000
-    assert results[2]["recipient_country_code"] is None
+    assert results[2]["recipient_country"] is None
 
 
 def test_split_by_everything():
@@ -287,54 +308,67 @@ def test_split_by_everything():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    # TODO add regions
+
+    worker = Worker()
+    results = worker.get_split_transactions(iati_activity)
 
     assert [
         {
-            "recipient_country_code": "FR",
-            "recipient_region_code": None,
+            "recipient_country": {"code": "FR"},
+            "recipient_region": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
-            "value": 250,
+            "value": 250.0,
         },
         {
-            "recipient_country_code": "FR",
-            "recipient_region_code": None,
-            "sectors": [{"code": "Linda", "vocabulary": "cats"}],
-            "value": 250,
-        },
-        {
-            "recipient_country_code": "FR",
-            "recipient_region_code": None,
-            "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
-            "value": 500,
-        },
-        {
-            "recipient_country_code": "GB",
-            "recipient_region_code": None,
+            "recipient_country": {"code": "GB"},
+            "recipient_region": None,
             "sectors": [{"code": "Henry", "vocabulary": "cats"}],
-            "value": 250,
+            "value": 250.0,
         },
         {
-            "recipient_country_code": "GB",
-            "recipient_region_code": None,
+            "recipient_country": {"code": "FR"},
+            "recipient_region": None,
             "sectors": [{"code": "Linda", "vocabulary": "cats"}],
-            "value": 250,
+            "value": 250.0,
         },
         {
-            "recipient_country_code": "GB",
-            "recipient_region_code": None,
-            "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
-            "value": 500,
+            "recipient_country": {"code": "GB"},
+            "recipient_region": None,
+            "sectors": [{"code": "Linda", "vocabulary": "cats"}],
+            "value": 250.0,
         },
-    ] == results
+        {
+            "recipient_country": {"code": "FR"},
+            "recipient_region": None,
+            "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
+            "value": 500.0,
+        },
+        {
+            "recipient_country": {"code": "GB"},
+            "recipient_region": None,
+            "sectors": [{"code": "Rover", "vocabulary": "dogs"}],
+            "value": 500.0,
+        },
+    ] == [i.get_as_json() for i in results]
 
-    # TODO could add code to test sum of the values in the results (per sector vocab)
-    # add up to the original value set on the transaction.
-    # We are then checking NO DOUBLE COUNTING!
-    # It's possible to verify this by hand,
-    # but may as well get Python to check for us and avoid extra work and the possibility of mistakes
-    # (Can use in other tests too)
-    # Note: This is now implemented in test_no_double_counting test (with one sector vocab)
+    assert 1000 == sum(
+        [
+            i.value
+            for i in filter_split_transactions_by_vocabulary(
+                results, sector_vocabulary="cats"
+            )
+        ]
+    )
+
+    assert 1000 == sum(
+        [
+            i.value
+            for i in filter_split_transactions_by_vocabulary(
+                results, sector_vocabulary="dogs"
+            )
+        ]
+    )
 
 
 def test_no_double_counting():
@@ -353,7 +387,8 @@ def test_no_double_counting():
         ],
     )
 
-    results = iati_activity.get_transactions_split_as_json()
+    worker = Worker()
+    results = worker.get_split_transactions_as_json(iati_activity)
 
     # Checking total value matches original
     total_value = sum(r["value"] for r in results)
@@ -362,7 +397,7 @@ def test_no_double_counting():
     # Checking country totals
     country_totals = {}
     for r in results:
-        country = r["recipient_country_code"]
+        country = r["recipient_country"]["code"]
         country_totals[country] = country_totals.get(country, 0) + r["value"]
 
     assert country_totals["FR"] == 600  # 60% of 1000

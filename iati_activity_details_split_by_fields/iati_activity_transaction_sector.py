@@ -11,7 +11,7 @@ class IATIActivityTransactionSector:
         code=None,
         iati_activity_sector: Optional[IATIActivitySector] = None,
     ):
-        self.vocabulary = vocabulary
+        self.vocabulary = vocabulary or "1"
         self.code = code
         if iati_activity_sector:
             self.vocabulary = iati_activity_sector.vocabulary
